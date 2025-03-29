@@ -2,137 +2,107 @@
 
 import { Request, Response } from "express";
 import { authService, UserCredentials } from "../services/authService";
+import { ResponseHandler } from "../utils/responseHandler";
+import { asyncHandler } from "../utils/errorHandler";
+import {
+  AuthenticationError,
+  AuthorizationError,
+  ValidationError,
+} from "../utils/errorHandler";
 
 export const authController = {
   // Register a new user
-  async register(req: Request, res: Response): Promise<any> {
-    try {
-      const { email, password, firstName, lastName, role } = req.body;
+  register: asyncHandler(async (req: Request, res: Response) => {
+    const { email, password, firstName, lastName, role } = req.body;
 
-      // Validate request
-      if (!email || !password) {
-        return res
-          .status(400)
-          .json({ error: "Email and password are required" });
-      }
-
-      // Check if user is authorized to set role
-      if (role === "admin") {
-        // Only admin can create another admin
-        const token = req.headers.authorization?.split(" ")[1];
-        if (!token) {
-          return res.status(401).json({ error: "Unauthorized" });
-        }
-
-        try {
-          const currentUser = await authService.verifySession(token);
-          if (currentUser.role !== "admin") {
-            return res.status(403).json({
-              error: "Forbidden: Only admins can create admin accounts",
-            });
-          }
-        } catch (error) {
-          return res.status(401).json({ error: "Invalid token" });
-        }
-      }
-
-      const userData: UserCredentials & {
-        firstName?: string;
-        lastName?: string;
-        role?: "admin" | "staff";
-      } = {
-        email,
-        password,
-        firstName,
-        lastName,
-        role: role as "admin" | "staff",
-      };
-
-      const user = await authService.register(userData);
-      return res.status(201).json(user);
-    } catch (error: any) {
-      console.error("Registration error:", error);
-      return res
-        .status(500)
-        .json({ error: error.message || "Failed to register user" });
+    // Validate request
+    if (!email || !password) {
+      throw new ValidationError("Email and password are required");
     }
-  },
+
+    // Check if user is authorized to set role
+    if (role === "admin") {
+      // Only admin can create another admin
+      const token = req.headers.authorization?.split(" ")[1];
+      if (!token) {
+        throw new AuthenticationError("Authentication required");
+      }
+
+      try {
+        const currentUser = await authService.verifySession(token);
+        if (currentUser.role !== "admin") {
+          throw new AuthorizationError("Only admins can create admin accounts");
+        }
+      } catch (error) {
+        throw new AuthenticationError("Invalid token");
+      }
+    }
+
+    const userData: UserCredentials & {
+      firstName?: string;
+      lastName?: string;
+      role?: "admin" | "staff";
+    } = {
+      email,
+      password,
+      firstName,
+      lastName,
+      role: role as "admin" | "staff",
+    };
+
+    const user = await authService.register(userData);
+    return ResponseHandler.created(res, user, "User registered successfully");
+  }),
 
   // Login user
-  async login(req: Request, res: Response): Promise<any> {
-    try {
-      const { email, password } = req.body;
+  login: asyncHandler(async (req: Request, res: Response) => {
+    const { email, password } = req.body;
 
-      if (!email || !password) {
-        return res
-          .status(400)
-          .json({ error: "Email and password are required" });
-      }
-
-      const result = await authService.login({ email, password });
-      return res.status(200).json(result);
-    } catch (error: any) {
-      console.error("Login error:", error);
-      return res
-        .status(401)
-        .json({ error: error.message || "Invalid credentials" });
+    if (!email || !password) {
+      throw new ValidationError("Email and password are required");
     }
-  },
+
+    const result = await authService.login({ email, password });
+    return ResponseHandler.success(res, result, "Login successful");
+  }),
 
   // Logout user
-  async logout(req: Request, res: Response): Promise<any> {
-    try {
-      const token = req.headers.authorization?.split(" ")[1];
+  logout: asyncHandler(async (req: Request, res: Response) => {
+    const token = req.headers.authorization?.split(" ")[1];
 
-      if (!token) {
-        return res.status(401).json({ error: "No token provided" });
-      }
-
-      await authService.logout(token);
-      return res.status(200).json({ message: "Logged out successfully" });
-    } catch (error: any) {
-      console.error("Logout error:", error);
-      return res
-        .status(500)
-        .json({ error: error.message || "Failed to logout" });
+    if (!token) {
+      throw new AuthenticationError("No token provided");
     }
-  },
+
+    await authService.logout(token);
+    return ResponseHandler.success(res, null, "Logged out successfully");
+  }),
 
   // Get current user profile
-  async getProfile(req: Request, res: Response): Promise<any> {
-    try {
-      const token = req.headers.authorization?.split(" ")[1];
+  getProfile: asyncHandler(async (req: Request, res: Response) => {
+    const token = req.headers.authorization?.split(" ")[1];
 
-      if (!token) {
-        return res.status(401).json({ error: "No token provided" });
-      }
-
-      const user = await authService.verifySession(token);
-      return res.status(200).json(user);
-    } catch (error: any) {
-      console.error("Get profile error:", error);
-      return res.status(401).json({ error: error.message || "Invalid token" });
+    if (!token) {
+      throw new AuthenticationError("No token provided");
     }
-  },
+
+    const user = await authService.verifySession(token);
+    return ResponseHandler.success(res, user, "Profile retrieved successfully");
+  }),
 
   // Initialize admin (for first-time setup)
-  async initializeAdmin(req: Request, res: Response): Promise<any> {
-    try {
-      const { email, password } = req.body;
+  initializeAdmin: asyncHandler(async (req: Request, res: Response) => {
+    const { email, password } = req.body;
 
-      if (!email || !password) {
-        return res
-          .status(400)
-          .json({ error: "Email and password are required" });
-      }
-
-      const admin = await authService.createInitialAdmin({ email, password });
-      return res.status(201).json(admin);
-    } catch (error: any) {
-      console.error("Initialize admin error:", error);
-      return res
-        .status(500)
-        .json({ error: error.message || "Failed to initialize admin" });
+    if (!email || !password) {
+      throw new ValidationError("Email and password are required");
     }
-  },
+
+    const admin = await authService.createInitialAdmin({ email, password });
+    return ResponseHandler.created(
+      res,
+      admin,
+      "Admin initialized successfully"
+    );
+  }),
 };
