@@ -11,9 +11,8 @@ if (!process.env.DATABASE_URL) {
 }
 
 export default {
-  schema: "./src/models/*.ts", // Load all schema files from models directory
-  out: "./drizzle", // Output directory for migrations
-  // PostgreSQL driver
+  schema: "./src/db/*.ts", // Load all schema files from models directory
+  out: "./drizzle",
   dbCredentials: {
     url: process.env.DATABASE_URL,
   },

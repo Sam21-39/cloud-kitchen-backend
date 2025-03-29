@@ -2,9 +2,8 @@
 // src/db/index.ts
 
 import { drizzle } from "drizzle-orm/postgres-js";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
-import * as schema from "../models/userSchema"; // Adjust the import path as necessary
+import * as schema from "../db/schema"; // Adjust the import path as necessary
 import dotenv from "dotenv";
 
 // Load environment variables
